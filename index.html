@@ -523,7 +523,7 @@ function getSpreadsheetIdFromUrl(url) {
 // Fetches the "ClientsInvoiceData" tab (Company Name = col G, Email = col H, Phone = col I;
 // row 1 is a header, data starts row 2) and merges it into COMPANY_CONTACTS.
 async function fetchDirectory(spreadsheetId) {
-  const url = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:csv&sheet=ClientsInvoiceData&range=G:I&_=${Date.now()}`;
+  const url = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:csv&gid=992073407&range=G:I&_=${Date.now()}`;
   const res = await fetch(url, { cache: 'no-store' });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const text = await res.text();
