@@ -714,12 +714,20 @@ async function generate() {
   await promptSaveCounterFile(nextStart);
 
   // Flag any company not found in COMPANY_CONTACTS (hardcoded defaults + fetched directory)
-  const unknownCompanyNames = [...new Map(generatedInvoices.map(inv => [inv.companyKey, inv.companyDisplayName])).entries()]
-    .filter(([key]) => !COMPANY_CONTACTS[key])
-    .map(([,name]) => name);
+  const normalize = s => s.toUpperCase().replace(/[^A-Z0-9]/g, ''); // strip spaces/punctuation for fuzzy compare
+  const unknownEntries = [...new Map(generatedInvoices.map(inv => [inv.companyKey, inv.companyDisplayName])).entries()]
+    .filter(([key]) => !COMPANY_CONTACTS[key]);
+  const directoryKeys = Object.keys(COMPANY_CONTACTS);
   const warnEl = document.getElementById('companyWarning');
-  if (unknownCompanyNames.length) {
-    warnEl.textContent = `⚠ Not found in company directory — invoice(s) generated with blank Bill To for: ${unknownCompanyNames.join(', ')}. Add them to the "Login" tab.`;
+  if (unknownEntries.length) {
+    const lines = unknownEntries.map(([key, name]) => {
+      const norm = normalize(key);
+      const nearMatch = directoryKeys.find(dk => normalize(dk) === norm);
+      return nearMatch
+        ? `"${name}" — close match found in directory: "${COMPANY_CONTACTS[nearMatch].name}" (check for extra spaces/punctuation/typo)`
+        : `"${name}" — no similar name found in directory at all`;
+    });
+    warnEl.innerHTML = `⚠ Not found in company directory — invoice(s) generated with blank Bill To for:<br>` + lines.join('<br>') + `<br>Add/fix them in the "Login" tab.`;
     warnEl.style.display = 'block';
   } else {
     warnEl.style.display = 'none';
