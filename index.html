@@ -523,7 +523,7 @@ function getSpreadsheetIdFromUrl(url) {
 // Fetches the "ClientsInvoiceData" tab (Company Name = col G, Email = col H, Phone = col I;
 // row 1 is a header, data starts row 2) and merges it into COMPANY_CONTACTS.
 async function fetchDirectory(spreadsheetId) {
-  const url = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:csv&sheet=ClientsInvoiceData&_=${Date.now()}`;
+  const url = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:csv&sheet=ClientsInvoiceData&range=G:I&_=${Date.now()}`;
   const res = await fetch(url, { cache: 'no-store' });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const text = await res.text();
@@ -531,9 +531,9 @@ async function fetchDirectory(spreadsheetId) {
   const foundNames = [];
   for (let i = 1; i < rows.length; i++) { // skip header row
     const cols  = rows[i];
-    const name  = (cols[6]  || '').trim(); // column G
-    const email = (cols[7]  || '').trim(); // column H
-    const phone = (cols[8]  || '').trim(); // column I
+    const name  = (cols[0] || '').trim(); // column G (first column of the requested range)
+    const email = (cols[1] || '').trim(); // column H
+    const phone = (cols[2] || '').trim(); // column I
     if (!name) continue;
     COMPANY_CONTACTS[name.toUpperCase()] = { name, phone, email };
     foundNames.push(name);
