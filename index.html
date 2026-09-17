@@ -319,8 +319,8 @@
 
       <div id="gsheetPane" style="display:none;">
         <div class="field">
-          <label>Google Sheet CSV link</label>
-          <input type="text" id="gsheetUrl" value="https://docs.google.com/spreadsheets/d/1vo3jABUrsLE13kLGA1rY01bgngOOpa4XKxLnBbcJ90k/gviz/tq?tqx=out:csv&sheet=Load%20Info%20Since%20Jan%20%2726" />
+          <label>Apps Script Web App URL (ends in /exec)</label>
+          <input type="text" id="gsheetUrl" placeholder="https://script.google.com/macros/s/.../exec" />
         </div>
         <button type="button" id="btnFetchSheet" class="generate-btn" style="margin-top:10px; width:100%;">⟳ Fetch from Google Sheet</button>
         <div id="gsheetStatus" style="font-family:'DM Mono',monospace; font-size:0.68rem; color:var(--ink-dim); margin-top:8px;">Not fetched yet this session</div>
@@ -515,58 +515,57 @@ function setGSheetStatus(msg, isError) {
   el.style.color = isError ? 'var(--error)' : 'var(--ink-dim)';
 }
 
-function getSpreadsheetIdFromUrl(url) {
-  const m = url.match(/\/d\/([a-zA-Z0-9-_]+)/);
-  return m ? m[1] : null;
+// Converts a 2D array (first row = headers) into the same array-of-objects
+// shape parseCSV() produces, so the rest of the app (generate(), findCol())
+// doesn't need to know or care where the data came from.
+function rowsToObjects(values) {
+  if (!values || !values.length) return [];
+  const headers = values[0].map(h => String(h).trim());
+  return values.slice(1).map(rowArr => {
+    const row = {};
+    headers.forEach((h,i) => row[h] = (rowArr[i] !== undefined && rowArr[i] !== null) ? String(rowArr[i]).trim() : '');
+    return row;
+  }).filter(r => Object.values(r).some(v=>v));
 }
 
-// Fetches the "ClientsInvoiceData" tab (Company Name = col G, Email = col H, Phone = col I;
-// row 1 is a header, data starts row 2) and merges it into COMPANY_CONTACTS.
-async function fetchDirectory(spreadsheetId) {
-  const url = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:csv&gid=992073407&range=G:I&_=${Date.now()}`;
-  const res = await fetch(url, { cache: 'no-store' });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const text = await res.text();
-  const rows = parseCSVText(text);
+// Builds COMPANY_CONTACTS from the directory tab's 2D array. Locates the
+// Company/Email/Phone columns by header text (not fixed position), so it
+// doesn't matter which columns they're actually in.
+function buildDirectoryFromRows(values) {
+  if (!values || !values.length) return { count: 0, names: [] };
+  const headers = values[0].map(h => String(h).trim().toLowerCase());
+  const nameIdx  = headers.findIndex(h => h.includes('company'));
+  const emailIdx = headers.findIndex(h => h.includes('email'));
+  const phoneIdx = headers.findIndex(h => h.includes('phone'));
   const foundNames = [];
-  for (let i = 1; i < rows.length; i++) { // skip header row
-    const cols  = rows[i];
-    const name  = (cols[0] || '').trim(); // column G (first column of the requested range)
-    const email = (cols[1] || '').trim(); // column H
-    const phone = (cols[2] || '').trim(); // column I
+  for (let i = 1; i < values.length; i++) {
+    const r = values[i];
+    const name  = nameIdx  > -1 ? String(r[nameIdx]  || '').trim() : '';
+    const email = emailIdx > -1 ? String(r[emailIdx] || '').trim() : '';
+    const phone = phoneIdx > -1 ? String(r[phoneIdx] || '').trim() : '';
     if (!name) continue;
     COMPANY_CONTACTS[name.toUpperCase()] = { name, phone, email };
     foundNames.push(name);
   }
-  return { count: foundNames.length, names: foundNames, totalLines: rows.length };
+  return { count: foundNames.length, names: foundNames };
 }
 
 async function fetchFromGSheet() {
-  const baseUrl = document.getElementById('gsheetUrl').value.trim();
-  if (!baseUrl) { setGSheetStatus('Paste a Google Sheet CSV link first.', true); return; }
-  const url = baseUrl + (baseUrl.includes('?') ? '&' : '?') + `_=${Date.now()}`;
+  const url = document.getElementById('gsheetUrl').value.trim();
+  if (!url) { setGSheetStatus('Paste your Apps Script Web App URL first.', true); return; }
   setGSheetStatus('Fetching…', false);
   try {
     const res = await fetch(url, { cache: 'no-store' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const text = await res.text();
-    csvRows = parseCSV(text);
+    const data = await res.json();
 
-    let dirMsg = '';
-    const spreadsheetId = getSpreadsheetIdFromUrl(url);
-    if (spreadsheetId) {
-      try {
-        const dir = await fetchDirectory(spreadsheetId);
-        dirMsg = ` · ${dir.count} companies from directory (${dir.totalLines} CSV lines total: ${dir.names.join(', ') || 'none'})`;
-      } catch (dirErr) {
-        dirMsg = ` · could not load company directory (${dirErr.message})`;
-      }
-    }
+    csvRows = rowsToObjects(data.loads);
+    const dir = buildDirectoryFromRows(data.directory);
 
-    setGSheetStatus(`✓ Fetched just now — ${csvRows.length} rows loaded${dirMsg}`, false);
+    setGSheetStatus(`✓ Fetched just now — ${csvRows.length} rows loaded · ${dir.count} companies from directory (${dir.names.join(', ') || 'none'})`, false);
     setStatus('', '');
   } catch (err) {
-    setGSheetStatus(`Could not fetch sheet (${err.message}). Check sharing settings and the link.`, true);
+    setGSheetStatus(`Could not fetch (${err.message}). Check the Apps Script deployment is set to "Anyone" access and re-deployed.`, true);
   }
 }
 document.getElementById('btnFetchSheet').addEventListener('click', fetchFromGSheet);
