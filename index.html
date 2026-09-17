@@ -381,14 +381,9 @@
 let csvRows = [];
 let generatedInvoices = [];
 
-const SLAUGHTER_KEY = "THE SLAUGHTER MOVEMENT";
-
-const COMPANY_CONTACTS = {
-  "SAMAN TRANSPORT LLC":                  { name: "Saman Transport LLC",                  phone: "(832) 274-0560", email: "samantransport@yahoo.com" },
-  "B&B LOGISTICS AND TRANSPORTATION LLC": { name: "B&B Logistics and Transportation LLC", phone: "(281) 235-4751", email: "nedabhajo72@hotmail.com" },
-  "LONE STAR ROYALTY EXPRESS":            { name: "Lone Star Royalty Express",            phone: "(972) 374-8456", email: "chadrickdeckard@yahoo.com" },
-  [SLAUGHTER_KEY]:                        { name: "The Slaughter Movement",               phone: "(219) 331-6489", email: "laurama513@gmail.com" },
-};
+// Company contact info is populated entirely from the "ClientsInvoiceData" tab
+// on fetch — nothing is hardcoded here.
+const COMPANY_CONTACTS = {};
 
 const MY_BIZ = { name: "Sureway Solutions LLC", phone: "(307) 312-9307" };
 
@@ -525,10 +520,10 @@ function getSpreadsheetIdFromUrl(url) {
   return m ? m[1] : null;
 }
 
-// Fetches the "Login" tab (Company Name = col G, Email = col H, Phone = col I;
+// Fetches the "ClientsInvoiceData" tab (Company Name = col G, Email = col H, Phone = col I;
 // row 1 is a header, data starts row 2) and merges it into COMPANY_CONTACTS.
 async function fetchDirectory(spreadsheetId) {
-  const url = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:csv&sheet=Login&_=${Date.now()}`;
+  const url = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:csv&sheet=ClientsInvoiceData&_=${Date.now()}`;
   const res = await fetch(url, { cache: 'no-store' });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const text = await res.text();
@@ -727,7 +722,7 @@ async function generate() {
         ? `"${name}" — close match found in directory: "${COMPANY_CONTACTS[nearMatch].name}" (check for extra spaces/punctuation/typo)`
         : `"${name}" — no similar name found in directory at all`;
     });
-    warnEl.innerHTML = `⚠ Not found in company directory — invoice(s) generated with blank Bill To for:<br>` + lines.join('<br>') + `<br>Add/fix them in the "Login" tab.`;
+    warnEl.innerHTML = `⚠ Not found in company directory — invoice(s) generated with blank Bill To for:<br>` + lines.join('<br>') + `<br>Add/fix them in the "ClientsInvoiceData" tab.`;
     warnEl.style.display = 'block';
   } else {
     warnEl.style.display = 'none';
