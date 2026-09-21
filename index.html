@@ -1,0 +1,918 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sureway Solutions – Invoice Generator</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg: #111110;
+    --surface: #1c1b18;
+    --surface2: #262420;
+    --border: #3a352c;
+    --accent: #c8a45c;
+    --accent-dim: rgba(200,164,92,0.12);
+    --on-accent: #241d0f;
+    --ink: #f3ede4;
+    --ink-mid: #9c9488;
+    --ink-dim: #5c5548;
+    --success: #c8a45c;
+    --error: #e2665c;
+    --font-heading: 'Bebas Neue', sans-serif;
+    --scheme: dark;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    min-height: 100vh;
+  }
+
+  header {
+    padding: 36px 48px 28px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+  }
+
+  header h1 {
+    font-family: var(--font-heading);
+    font-weight: 600;
+    font-size: 2.6rem;
+    letter-spacing: 0.06em;
+    color: var(--accent);
+    line-height: 1;
+  }
+
+  header p {
+    font-size: 0.78rem;
+    color: var(--ink-mid);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-top: 4px;
+  }
+
+  .header-tag {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--ink-dim);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    border: 1px solid var(--border);
+    padding: 6px 12px;
+    border-radius: 20px;
+  }
+
+  .main {
+    display: grid;
+    grid-template-columns: 380px 1fr;
+    min-height: calc(100vh - 97px);
+  }
+
+  .panel {
+    border-right: 1px solid var(--border);
+    padding: 36px 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+  }
+
+  .section-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-dim);
+    margin-bottom: 12px;
+  }
+
+  .section-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px;
+  }
+
+  .dropzone {
+    border: 1.5px dashed var(--border);
+    border-radius: 10px;
+    padding: 28px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+  }
+
+  .dropzone:hover, .dropzone.drag-over {
+    border-color: var(--accent);
+    background: var(--accent-dim);
+  }
+
+  .dropzone input[type="file"] {
+    position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+  }
+
+  .dropzone-icon { font-size: 1.8rem; margin-bottom: 10px; }
+
+  .dropzone-text { font-size: 0.82rem; color: var(--ink-mid); line-height: 1.5; }
+  .dropzone-text strong { color: var(--accent); display: block; font-size: 0.9rem; margin-bottom: 4px; }
+
+  .file-loaded { background: var(--accent-dim); border-color: var(--accent); border-style: solid; }
+
+  .file-formats { margin-top: 8px; font-size: 0.72rem; color: var(--ink-dim); text-align: center; }
+  .format-badge {
+    display: inline-block; background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 6px; padding: 2px 7px; font-family: 'DM Mono', monospace;
+    font-size: 0.65rem; margin: 0 2px; letter-spacing: 0.05em;
+  }
+
+  .date-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .date-row .field, .inv-row .field { min-width: 0; }
+  .inv-row  { display: grid; grid-template-columns: 2fr 1fr; gap: 12px; }
+
+  .field label {
+    display: block; font-family: 'DM Mono', monospace; font-size: 0.65rem;
+    letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-mid); margin-bottom: 6px;
+  }
+
+  .field input[type="date"],
+  .field input[type="text"],
+  .field input[type="number"] {
+    width: 100%; padding: 10px 12px; background: var(--surface2);
+    border: 1px solid var(--border); border-radius: 8px; color: var(--ink);
+    font-family: 'DM Mono', monospace; font-size: 0.82rem; outline: none;
+    transition: border-color 0.15s; color-scheme: var(--scheme, dark);
+  }
+
+  .field input:focus { border-color: var(--accent); }
+
+  .generate-btn {
+    width: 100%; padding: 16px; background: var(--accent); color: var(--on-accent);
+    border: none; border-radius: 10px; font-family: var(--font-heading); font-weight: 600;
+    font-size: 1.1rem; letter-spacing: 0.1em; cursor: pointer;
+    transition: opacity 0.15s, transform 0.1s; margin-top: auto;
+  }
+  .generate-btn:hover { opacity: 0.88; }
+  .generate-btn:active { transform: scale(0.98); }
+
+  .output { padding: 36px 40px; }
+
+  .output-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 24px; min-height: 24px;
+  }
+
+  .status-msg { font-size: 0.82rem; font-family: 'DM Mono', monospace; }
+  .status-msg.error   { color: var(--error); }
+  .status-msg.success { color: var(--accent); }
+  .status-msg.loading { color: var(--ink-mid); }
+
+  .dl-all-btn {
+    padding: 8px 18px; background: transparent; border: 1px solid var(--accent);
+    color: var(--accent); border-radius: 8px; font-family: 'DM Mono', monospace;
+    font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase;
+    cursor: pointer; transition: background 0.15s; display: none;
+  }
+  .dl-all-btn:hover { background: var(--accent-dim); }
+
+  .invoice-list { display: flex; flex-direction: column; gap: 14px; }
+
+  .inv-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; overflow: hidden;
+    transition: border-color 0.15s; animation: fadeUp 0.3s ease both;
+  }
+  .inv-card:hover { border-color: var(--accent); }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .inv-card-main {
+    padding: 18px 24px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+
+  .inv-left { flex: 1; }
+  .inv-company { font-size: 0.95rem; font-weight: 600; color: var(--ink); margin-bottom: 4px; }
+  .inv-meta { font-family: 'DM Mono', monospace; font-size: 0.72rem; color: var(--ink-mid); }
+
+  .inv-right { display: flex; align-items: center; gap: 16px; }
+
+  .inv-total {
+    font-family: var(--font-heading); font-weight: 600; font-size: 1.4rem;
+    color: var(--accent); letter-spacing: 0.04em;
+  }
+
+  .dl-btn {
+    padding: 8px 16px; background: var(--accent-dim); border: 1px solid var(--accent);
+    color: var(--accent); border-radius: 8px; font-family: 'DM Mono', monospace;
+    font-size: 0.7rem; letter-spacing: 0.06em; text-transform: uppercase;
+    cursor: pointer; transition: background 0.15s; white-space: nowrap;
+  }
+  .dl-btn:hover { background: var(--accent); color: var(--on-accent); }
+
+  .source-tab { opacity: 0.55; min-width: 0; }
+  .source-tab.active { opacity: 1; background: var(--accent); color: var(--on-accent); }
+
+  /* Custom charge section inside card */
+  .custom-charge-bar {
+    border-top: 1px solid var(--border);
+    padding: 12px 24px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--surface2);
+  }
+
+  .custom-charge-bar span {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.68rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-dim);
+    white-space: nowrap;
+  }
+
+  .custom-charge-bar input {
+    padding: 6px 10px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--ink);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.82rem;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+
+  .custom-charge-bar input:focus { border-color: var(--accent); }
+
+  .custom-charge-bar .input-label { flex: 2; }
+  .custom-charge-bar .input-amount { flex: 1; max-width: 110px; }
+
+  .empty-state {
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; height: 300px; gap: 12px; color: var(--ink-dim);
+  }
+  .empty-state .icon { font-size: 2.5rem; opacity: 0.4; }
+  .empty-state p { font-size: 0.82rem; letter-spacing: 0.06em; text-transform: uppercase; }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Sureway Solutions LLC</h1>
+    <p>Weekly Invoice Generator <span style="font-family:'DM Mono',monospace; font-size:0.62rem; color:var(--ink-mid); background:var(--surface2); border:1px solid var(--border); padding:2px 7px; border-radius:10px; text-transform:none; letter-spacing:0.02em; vertical-align:middle;">v5.0</span></p>
+  </div>
+  <div class="header-tag">XLSX · CSV · Sheets → PDF</div>
+</header>
+
+<div class="main">
+
+  <div class="panel">
+    <div class="section-card">
+      <div class="section-label">01 — Load Data</div>
+      <div style="display:flex; gap:8px; margin-bottom:12px;">
+        <button type="button" id="tabUpload" class="dl-btn source-tab" style="flex:1; text-align:center; font-family:'Arial Narrow', Arial, sans-serif;">⬆ Upload CSV</button>
+        <button type="button" id="tabGSheet" class="dl-btn source-tab active" style="flex:1; text-align:center; font-family:'Arial Narrow', Arial, sans-serif;">⟳ GSheet Data</button>
+      </div>
+
+      <div id="uploadPane" style="display:none;">
+        <div class="dropzone" id="dropzone">
+          <input type="file" id="fileInput" accept=".csv,.xlsx,.xls" onchange="handleFile(this.files[0])">
+          <div class="dropzone-icon">📊</div>
+          <div class="dropzone-text">
+            <strong>Drop your file here</strong>
+            or click to browse
+          </div>
+        </div>
+        <div class="file-formats">
+          Supports <span class="format-badge">.xlsx</span> <span class="format-badge">.xls</span> <span class="format-badge">.csv</span>
+        </div>
+      </div>
+
+      <div id="gsheetPane">
+        <div class="field">
+          <label>Apps Script Web App URL (ends in /exec)</label>
+          <input type="text" id="gsheetUrl" value="https://script.google.com/macros/s/AKfycbxQB7IVxMwUsqABnbPuaChG0RgvwmXXAi35GtxtaopW9IviR0oWdISWGpbWd15G8yO4Vw/exec" />
+        </div>
+        <button type="button" id="btnFetchSheet" class="generate-btn" style="margin-top:10px; width:100%; font-size:0.85rem;">⟳ Fetch from Google Sheet</button>
+        <div id="gsheetStatus" style="font-family:'DM Mono',monospace; font-size:0.68rem; color:var(--ink-dim); margin-top:8px;">Not fetched yet this session</div>
+      </div>
+    </div>
+
+    <div class="section-card">
+      <div class="section-label">02 — Delivery Date Range</div>
+      <div class="date-row">
+        <div class="field"><label>From</label><input type="date" id="dateFrom" /></div>
+        <div class="field"><label>To</label><input type="date" id="dateTo" /></div>
+      </div>
+    </div>
+
+    <div class="section-card">
+      <div class="section-label">03 — Invoice Settings</div>
+      <div class="inv-row">
+        <div class="field"><label>Prefix</label><input type="text" id="invPrefix" value="C201654C" /></div>
+        <div class="field"><label>Start #</label><input type="text" id="invStart" placeholder="x" /></div>
+      </div>
+      <div class="field" style="margin-top:12px;">
+        <label>Days Until Due</label>
+        <input type="text" id="dueDays" value="3" />
+      </div>
+      <div class="field" style="margin-top:12px;">
+        <label>Counter File (import last week's Start #)</label>
+        <button type="button" id="btnLoadCounter" class="dl-btn" style="width:100%; text-align:center;">📂 Import Counter File</button>
+        <div id="counterFileStatus" style="font-family:'DM Mono',monospace; font-size:0.68rem; color:var(--ink-dim); margin-top:6px;">No file imported — type Start # manually</div>
+      </div>
+    </div>
+
+    <button class="generate-btn" onclick="generate()">Generate Invoices</button>
+  </div>
+
+  <div class="output">
+    <div class="output-header">
+      <div>
+        <div class="status-msg" id="statusMsg"></div>
+        <div id="grandTotalDisplay" style="display:none; margin-top:6px; gap:28px; align-items:baseline;">
+          <div>
+            <div style="font-family:'DM Mono',monospace;font-size:0.72rem;color:var(--ink-mid);text-transform:uppercase;letter-spacing:0.08em;">Total Receivable</div>
+            <span id="grandTotalAmt" style="font-family:var(--font-heading);font-weight:600;font-size:1.6rem;color:var(--accent);letter-spacing:0.04em;"></span>
+          </div>
+          <div>
+            <div style="font-family:'DM Mono',monospace;font-size:0.72rem;color:var(--ink-mid);text-transform:uppercase;letter-spacing:0.08em;">Total Loads</div>
+            <span id="grandLoadsAmt" style="font-family:var(--font-heading);font-weight:600;font-size:1.6rem;color:var(--accent);letter-spacing:0.04em;"></span>
+          </div>
+        </div>
+        </div>
+        <div id="companyWarning" style="display:none; margin-top:8px; font-family:'DM Mono',monospace; font-size:0.72rem; color:#f5a442; max-width:480px;"></div>
+      </div>
+      <button class="dl-all-btn" id="dlAllBtn" onclick="downloadAll()">↓ Download All</button>
+    <div id="invoiceList">
+      <div class="empty-state">
+        <div class="icon">🧾</div>
+        <p>Invoices will appear here</p>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+let csvRows = [];
+let generatedInvoices = [];
+
+// Company contact info is populated entirely from the "ClientsInvoiceData" tab
+// on fetch — nothing is hardcoded here.
+const COMPANY_CONTACTS = {};
+
+const MY_BIZ = { name: "Sureway Solutions LLC", phone: "(307) 312-9307" };
+
+// Company logo (base64 JPEG) — used in top-right corner of generated PDFs
+const LOGO_DATA_URI = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAASABIAAD/4QCMRXhpZgAATU0AKgAAAAgABQESAAMAAAABAAEAAAEaAAUAAAABAAAASgEbAAUAAAABAAAAUgEoAAMAAAABAAIAAIdpAAQAAAABAAAAWgAAAAAAAABIAAAAAQAAAEgAAAABAAOgAQADAAAAAQABAACgAgAEAAAAAQAAAoCgAwAEAAAAAQAAAoAAAAAA/+0AOFBob3Rvc2hvcCAzLjAAOEJJTQQEAAAAAAAAOEJJTQQlAAAAAAAQ1B2M2Y8AsgTpgAmY7PhCfv/AABEIAoACgAMBIgACEQEDEQH/xAAfAAABBQEBAQEBAQAAAAAAAAAAAQIDBAUGBwgJCgv/xAC1EAACAQMDAgQDBQUEBAAAAX0BAgMABBEFEiExQQYTUWEHInEUMoGRoQgjQrHBFVLR8CQzYnKCCQoWFxgZGiUmJygpKjQ1Njc4OTpDREVGR0hJSlNUVVZXWFlaY2RlZmdoaWpzdHV2d3h5eoOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4eLj5OXm5+jp6vHy8/T19vf4+fr/xAAfAQADAQEBAQEBAQEBAAAAAAAAAQIDBAUGBwgJCgv/xAC1EQACAQIEBAMEBwUEBAABAncAAQIDEQQFITEGEkFRB2FxEyIygQgUQpGhscEJIzNS8BVictEKFiQ04SXxFxgZGiYnKCkqNTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqCg4SFhoeIiYqSk5SVlpeYmZqio6Slpqeoqaqys7S1tre4ubrCw8TFxsfIycrS09TV1tfY2dri4+Tl5ufo6ery8/T19vf4+fr/2wBDAAYGBgYGBgoGBgoOCgoKDhIODg4OEhcSEhISEhccFxcXFxcXHBwcHBwcHBwiIiIiIiInJycnJywsLCwsLCwsLCz/2wBDAQcHBwsKCxMKChMuHxofLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi7/3QAEACj/2gAMAwEAAhEDEQA/APqmiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAowKKKADAowKKKADAowKKKADAowKKKADAowKKKADAowKKKADAowKKKADAowKKKADAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooA//0PqmiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigD//R+qaKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKAP/9L6pooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooA//0/qmiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigD//U+qaKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKAP/9X6pooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooA//1vqmiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigArG1jxDo2gRrJq9yluHztDZy2PQDJNbNcvrPg7QvEF7HfaxCbhol2orMQgHXoKAOJvfjL4bhby9PhuLx+wVdoP58/pWZ/wALG8bal/yBfDzhT0aUMf1O0V65Y6Ho+mKFsLSGAD+4gB/PFaoAHSgDxES/GfUMMEtrNfQ7P/sjTpPCPxPu23S66IVbnarMce3AWvbKKAPD/wDhWfi+bm68STE+28/zal/4VNrDcv4iuM/7rf8Axde30UAeH/8ACp9bTmPxFPn6N/8AF0f8K58bwf8AHp4kl/4EXH/s1e4UUAeKDw58V7GMm21iO4foA7HAHrgqcmojqXxk03mezgvVHXaFz+hU17hRQB4gPip4g0441/QJogOrJuA/UEfrW7p/xe8IXpCXDy2jHr5qZA/Fc16iVVuGAP1rn9R8KeHNVBF/YQyE99gDfmMGgC5p+uaPqqhtOu4Z89kcE/l1rVryHUPg54flbzdJnnsZOo2tuUfgef1rJOifFXwvzpV8uqQL/wAs5OWx9H/o1AHulFeK2fxbksZhZ+LtMmsZOhdQdv12tz+RNeoaR4j0TXY/M0q7jn9VBww+qnkflQBtUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQB/9f6pooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigCpeafY6jCYL6BJ426q6hh+teW6x8ItImkN34fnk024HK7CSmfp1H4GvXaKAPC4Nd+IXgl/J8Rwf2nYjgXCfMV/3mAyB/vCvRvD/jfQPEX7u1m8qcYDQy/K2T6dm/A11rKGBVhkHsa888TfDfRNfQS2+bG5Qlkkh4Gf8AaXof0NAHolFeCJr/AI6+Hsgg8RxHU9NBwJ15ZR/vdR9G/OvW9A8T6L4ltvtGkziQgfNGeHT6r/XpQB0FFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFAH//Q+qaKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigBksUc0bRTKHRhgqwyCPcV4/4g+GBiuf7a8FTHT7xPm8tSQjH2/u59Olex0UAeOeHfiXNb3Y0HxvCbG8X5RMRhG9M9hn1HFewo6uodCGVhkEcgiue8R+FdH8UWhtdTiBYD5JBw6H1B/p0ryCK98U/Cu6W21DdqOiM2FkHWPP/AKCfY8HtQB9BUVmaRrGna7ZJqGmSiaJ+46g+hHY1p0AFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQB//0fqmiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACoLm2t7yB7a6jWSKQYZWGQQfap6KAPA9X8M638PL9vEXhEtNYE5ntTk4Xvx3Hoeor1Xwt4s0vxXYC7sG2yLxLCT8yH39vQ10xAYFSMg14j4r8G6j4cvz4w8E5jdDuntl+6w7kDuD3H5UAe30VyfhPxZZeKLISJiK6jA8+An5kJ/oa6ygAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooA//S+qaKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigDxHxl4Tv/D2o/wDCbeDwUkQ7rmBejD+Igdwe4/GvRfCXiuw8WaYt9anbKvyzRE8o3+B7GuoIBBB5BrwbxRot/wDD/Wh4x8NqTZSNi6tx90Annj0Pb0NAHvVFZWiazY6/psWqae+6KUZ91PcH3FatABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFAH//0/qmiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKhuLeG7ge2uUEkcilWU8gg9RU1FAHz7A9z8KvFP2aUs+h6i3yk8+Wf8V7+or3+ORJY1ljIZWAII6EHoaw/E3h6z8TaRNpd2PvjKP3Rx0YV5v8ADfX7zT7ubwJr5K3VoSIGb+JB/CD345HtQB7PRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFAH/9T6pooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAryH4oeHLh4ovF2jZS+08hmK9WQHOf8AgP8AKvXqa6LIhjcBlYEEHoQaAOc8J+IrfxPokGqQ4DsNsq/3XHUf4V0teBaUz/Drx4+jykrpeqndET0Vifl/I/Kfwr32gAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKAP//V+qaKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKAOA+IvhhfEmhMYjsubQ+bE/fj7w/EfqKt+A/EH/CQaDHJLkXFv+5mB67l6Mf8AeHNdoRkYNeFabMfA/wARZdHlGLDVcGFuyljkD6BsigD3WiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooA//9b6pooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAK8o+Leive6Cms2gxc6a4kDDrsJ5/I4Ner1Xu7WK9tZbOcZjmRkYezDBoAx/Cuspr+gWmqKctLGN49HHDD866CvEfhTcy6VqGreDrs/PaymSMH0ztbH6H8a9uoAKKKKACiiigAooooAKKKKACiiigAooooAKKKKAP/X+qaKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigDwvxT/xTPxN0zXk+WHUAIpT2yfkP81Ne6V5T8X9Le+8MrewKWmspldcDJw3yn9cV3+gXct/olneToySSwozqwwQ2Ocg+9AGvRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQB//Q+qaKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigBCoYYYZHvS0UUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFAH/9H6pooooAKKKKACiiigAooooAKKKKACiiigAoorz3xp8TPDPgfEOpSNLdMMrBEAXx6nOAB9aAPQqK+a4v2k9FaXbNpM6x5+8JFY4+mB/OvX/CXxA8M+NIz/AGLcEzIMvDINsij6dCPcE0AdrRRRQAUUUUAFFcd458Y2/gfRP7aubdrlPMWPYjBTls85IPpWV8PfiLafECG6mtLR7UWrKpDsGzuGewFAHo1FFeFal8c9M03xPL4ZfTZXkjufsxkEigE7tucY6UAe60Uincob1GaWgAooooAKKK8X8bfGfTvBWvSaFc6fLcOiI+9XCg7x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56iFDx/30cn6Yrtfij4C/wCE606yt4SFmtrlGLHgiFziTH4YI+lejWNnBp9nDY2qhIoEWNFHQKowKAPjL9oDwx/ZXiiPXYFxBqSZYjoJU4b8xg17D8AfDf8AZPhFtYmXE2pybwT18pPlT8+T+Ndr8S/Bn/Cb+GzpkWFuI5UkiY9iDhv/AB0n8cV2mm2EGl6fb6dbLtit41jQegUYFAF2iiigAooooAK+ZP2ivFXkWVp4Stm+e4P2i4wf4FOEU/U5P4CvpuvmfxN8FfEnizxfNr+qX9uLeaZSY13blgUgBRxjO0fnQB4l4f8ACvxUtLQXvhy2vYIbtVcNC/lh1xlScMD0PGawPFPh3xlpkg1TxZbTo9y23zpyGLso6E5POPWv0fghitoUt4VCpGoVVHQADAFcX8RPB6+N/DM2iq6xz7lkhkYZCup747EEj8aAOY+Cfir/AISPwbFaztuutNIt5MnkoB+7b8V4+oNewV4D8L/hb4m8A63Je3F7bzWlxEY5Y03ZJHKsMjGQf0Jr36gAooooAKKKKAPMPjJY2t78O9Ta5QObdUljPdXDgZH4Ej8a+e/2dbG1ufF11dToGktrUtET/CWYKSPfHFfVfjXQrjxN4Wv9CtXWOW7jCKz52ghgecfSvMfhT8K9X8Batd6hqF1DOk8AiAjDZB3A5OR7UAe7UUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAf/U+qaKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKAP/9X6pooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiuE8b+MZvC4srPT7X7ZqGpS+VbxM2xcjqWPoKm8Nar4yuruS08T6VDaKqBkngm3oxz93aeQaAO1oozjk14/P8QfEet6lcWPgDSkvobRzHLd3D7IS46qmME/WgD2CivN/C3jy41PVpPDHiWxOl6tGu8R7t0cqf3o27/SvSKACiuG8P+LLnWPF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iiigAooooAKKKKACiiigArF8Q6TFrmjXOmSjImQgezdj+dbVFAHkXwm1Wc2F14cvjifTZNoB67CT/IivXa8Z8SJ/winji08RR4jtr0GOdui54GD79xXsiMrqHU5DDIP1oAdRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQB/9H6pooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKAOW8ZeHYvE2gXGmsB5mN8RPZ16fn0rkvhZ4ilv9MfQdRJF7px8shvvFBwD+HSvVq8K8c2Vz4O8TW/jjS1PkSsEukXoc9c/UfrQB7rRVPT7621Kyiv7Rg8UyhlI9DVygAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigD//0vqmiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKz9V0y11jT5tNvF3RTKVPt6Ee4rQooA8K8DapdeD9em8C622ImYtaSHoc9APZv517rXnnxD8If8JJpourEbdQtPnhYcE4525/l70z4eeMP+Ei082N/8mo2fyTIeC2ON2P5+9AHo1FFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAf/T+qaKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAK8T8eeHL7Q9SXx14YBWWI5uY16MO7Y9D3/ADr2ymsqupRwCrDBB6EUAc94X8S2PijSo9RszhsYkj7o3cH+ldHXgOu6TqPw21s+J9BUyaZO2LiAdFz/AE9D26V7RoutWGv6fHqWnOHjkH4qe4I7EUAa1FFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQB//9T6pooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAhuLeC6ge2uUEkcgKsrDIINeEX9hqXwr1JtX0lXudJuXHmQ9ox7+/ofzr32obi3huoXt7hBJHICrKwyCDQBQ0XWtP1+wj1HTZBJG4/FT6EdiK1a8B1XQdb+G2otr/hndPpjnM9vydo/w9D2r1vw14o0vxTYi805/mH+sjP30PoR/WgDo6KKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKAP/1fqmiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAayq6lHAZSMEHoRXi3iPwHqWh3x8TeBWMUqndJbD7rDvtHfPp+Ve10UAedeD/iHp/iLFhfD7HqKcNC/G4jrtz/LrXoteeeL/h7pviP/AE61P2TUE5WZOMkdN2P59a47S/HOveELpdE8dQs0Wdsd2ozkepP8Q/WgD3Siqljf2epWy3dhKs0TjIZDkVboAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigD/9b6pooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigArP1PStP1i1az1KFZom7MM49x6GtCigDwq98EeJ/Btw2p+B7hpoM5e1c549MdD/Oui8O/FLStQkGn64h029B2lZMhC31PT8a9TrlPEXgvQPE0RXUYB5uPllT5XH49/xoA6pWV1DIQQeQR0pa8UfRPHng7nQZ/wC0LOMfLE/LEDsQe/oQa1tE+K+i3kgstbR9NugcMJAdmfr1H40Aeq0VDBcQXUQmtpFkRujIQQfxFTUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAf//X+qaKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigArndb8J6B4hQrqdqkjdnAw4+jDmuiooA8Pn+GniHQJTdeC9UdAOfJlPB9s9D+IpsfxD8X+HCIfF+ks6DgzxDAPvxlf5V7lTHjSRSkihlPUEZFAHC6T8S/CGrYVLsW8h/gmGw/n0/Wu4hnhuEEkDrIp6FSCPzFcdq/wAPPCesbnuLJY5G/ji+Rv04rh5fhNf6e/neGdZntiOiuTj81I/lQB7dRXh3/F4tD/546nGPoSfz2mnL8UPEmnnbrnh+ZMdWjDAfqCP1oA9voryC3+M/hp8LdwXNufdQf6it+P4n+DHIV7zyiRnDowIz64BoA9AorkY/Hvg6X7upwfiSP5irA8aeFDyNTtv+/goA6aiuXbxr4TXrqdt/32DVSX4heDIfvanEfpuP8hQB2dFecXHxW8GwxmVbh5QDj5EJ5/HFYE3xo0hjt06wublj04A/lmgD2aivDz4+8fap8ujaA0YPRpQ39dopDovxb13/AI/r+PT426rGcHH/AAAf1oA9wyCSAeR2pa5Dwf4XfwxZyxXF095cTvvklfOemABkngV19ABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQB/9D6pooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACkKq33gDS0UAZ8+k6Zc/8fFrFJ/vID/SsS48DeErpi02mwEtySFAJ/KurooA4CT4YeCZP+XBV/wB1mH9arH4T+CT/AMujD/to3+NekUUAecL8KPBK/wDLmT9ZG/xq5F8NPBMXTTo2/wB4sf5mu7ooA5y28IeGLTP2fTrdc9fkB/nWzDY2VsMW8EcY/wBlQP5VaooAMAdKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooA//9H6pooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooA//0vqmiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigD//T+qaKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKAP/9T6pooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooA//1fqmiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigD//W+qaKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKAP/9k=";
+
+// Default Mon–Fri
+(function () {
+  const today = new Date();
+  const day = today.getDay();
+  const mon = new Date(today);
+  mon.setDate(today.getDate() - (day === 0 ? 6 : day - 1));
+  const fri = new Date(mon); fri.setDate(mon.getDate() + 4);
+  document.getElementById('dateFrom').value = mon.toISOString().slice(0,10);
+  document.getElementById('dateTo').value   = fri.toISOString().slice(0,10);
+})();
+
+
+
+// ── Counter file (File System Access API) ──────────────────────────────────
+let counterFileHandle = null;
+
+function setCounterStatus(msg, isError) {
+  const el = document.getElementById('counterFileStatus');
+  el.textContent = msg;
+  el.style.color = isError ? 'var(--error)' : 'var(--ink-dim)';
+}
+
+async function loadCounterFile() {
+  if (!('showOpenFilePicker' in window)) {
+    setCounterStatus('This browser doesn\'t support linked counter files.', true);
+    return;
+  }
+  try {
+    const [handle] = await window.showOpenFilePicker({
+      types: [{ description: 'Invoice Counter', accept: { 'application/json': ['.json'] } }],
+      multiple: false
+    });
+    counterFileHandle = handle;
+    const file = await handle.getFile();
+    const text = await file.text();
+    let data = {};
+    try { data = JSON.parse(text); } catch (e) { /* leave data empty */ }
+    const nextStart = data.nextInvoiceStart || '';
+    document.getElementById('invStart').value = nextStart;
+    setCounterStatus(`Imported: ${handle.name} (Start # set to ${nextStart})`, false);
+  } catch (err) {
+    if (err.name !== 'AbortError') setCounterStatus('Could not open that file.', true);
+  }
+}
+
+// After generating, always prompt a Save dialog for the updated counter file
+async function promptSaveCounterFile(nextStart) {
+  if (!('showSaveFilePicker' in window)) {
+    setCounterStatus('This browser doesn\'t support saving a counter file.', true);
+    return;
+  }
+  try {
+    const handle = await window.showSaveFilePicker({
+      suggestedName: counterFileHandle ? counterFileHandle.name : 'invoice-counter.json',
+      types: [{ description: 'Invoice Counter', accept: { 'application/json': ['.json'] } }]
+    });
+    counterFileHandle = handle;
+    const writable = await handle.createWritable();
+    await writable.write(JSON.stringify({ nextInvoiceStart: nextStart, lastUpdated: new Date().toISOString() }, null, 2));
+    await writable.close();
+    setCounterStatus(`Saved: ${handle.name} (next Start # will be ${nextStart})`, false);
+  } catch (err) {
+    if (err.name !== 'AbortError') setCounterStatus('Counter file not saved.', true);
+  }
+}
+
+document.getElementById('btnLoadCounter').addEventListener('click', loadCounterFile);
+
+// Drag & drop
+const dz = document.getElementById('dropzone');
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+dz.addEventListener('drop', e => {
+  e.preventDefault(); dz.classList.remove('drag-over');
+  if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+});
+
+function handleFile(file) {
+  const name = file.name.toLowerCase();
+  if (name.endsWith('.csv')) {
+    const r = new FileReader();
+    r.onload = e => { csvRows = parseCSV(e.target.result); showLoaded(file.name, csvRows.length); };
+    r.readAsText(file);
+  } else if (name.endsWith('.xlsx') || name.endsWith('.xls')) {
+    const r = new FileReader();
+    r.onload = e => {
+      try {
+        const wb = XLSX.read(new Uint8Array(e.target.result), { type:'array', cellDates:true });
+        csvRows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { raw:false, defval:'' });
+        showLoaded(file.name, csvRows.length);
+      } catch(err) { setStatus('Error reading file: ' + err.message, 'error'); }
+    };
+    r.readAsArrayBuffer(file);
+  } else {
+    setStatus('Please upload a .xlsx, .xls, or .csv file.', 'error');
+  }
+}
+
+function showLoaded(name, count) {
+  dz.classList.add('file-loaded');
+  dz.querySelector('.dropzone-text').innerHTML = `<strong>✓ ${name}</strong>${count} rows loaded`;
+  setStatus('', '');
+}
+
+// ── Source tabs: Upload CSV vs Fetch from GSheet ────────────────────────────
+const tabUpload  = document.getElementById('tabUpload');
+const tabGSheet  = document.getElementById('tabGSheet');
+const uploadPane = document.getElementById('uploadPane');
+const gsheetPane = document.getElementById('gsheetPane');
+
+tabUpload.addEventListener('click', () => {
+  tabUpload.classList.add('active'); tabGSheet.classList.remove('active');
+  uploadPane.style.display = ''; gsheetPane.style.display = 'none';
+});
+tabGSheet.addEventListener('click', () => {
+  tabGSheet.classList.add('active'); tabUpload.classList.remove('active');
+  gsheetPane.style.display = ''; uploadPane.style.display = 'none';
+});
+
+function setGSheetStatus(msg, isError) {
+  const el = document.getElementById('gsheetStatus');
+  el.textContent = msg;
+  el.style.color = isError ? 'var(--error)' : 'var(--ink-dim)';
+}
+
+// Converts a 2D array (first row = headers) into the same array-of-objects
+// shape parseCSV() produces, so the rest of the app (generate(), findCol())
+// doesn't need to know or care where the data came from.
+function rowsToObjects(values) {
+  if (!values || !values.length) return [];
+  const headers = values[0].map(h => String(h).trim());
+  return values.slice(1).map(rowArr => {
+    const row = {};
+    headers.forEach((h,i) => row[h] = (rowArr[i] !== undefined && rowArr[i] !== null) ? String(rowArr[i]).trim() : '');
+    return row;
+  }).filter(r => Object.values(r).some(v=>v));
+}
+
+// Builds COMPANY_CONTACTS from the directory tab's 2D array. Locates the
+// Company/Email/Phone columns by header text (not fixed position), so it
+// doesn't matter which columns they're actually in.
+function buildDirectoryFromRows(values) {
+  if (!values || !values.length) return { count: 0, names: [] };
+  const headers = values[0].map(h => String(h).trim().toLowerCase());
+  const nameIdx  = headers.findIndex(h => h.includes('company'));
+  const emailIdx = headers.findIndex(h => h.includes('email'));
+  const phoneIdx = headers.findIndex(h => h.includes('phone'));
+  const foundNames = [];
+  for (let i = 1; i < values.length; i++) {
+    const r = values[i];
+    const name  = nameIdx  > -1 ? String(r[nameIdx]  || '').trim() : '';
+    const email = emailIdx > -1 ? String(r[emailIdx] || '').trim() : '';
+    const phone = phoneIdx > -1 ? String(r[phoneIdx] || '').trim() : '';
+    if (!name) continue;
+    COMPANY_CONTACTS[name.toUpperCase()] = { name, phone, email };
+    foundNames.push(name);
+  }
+  return { count: foundNames.length, names: foundNames };
+}
+
+async function fetchFromGSheet() {
+  const url = document.getElementById('gsheetUrl').value.trim();
+  if (!url) { setGSheetStatus('Paste your Apps Script Web App URL first.', true); return; }
+  setGSheetStatus('Fetching…', false);
+  try {
+    const res = await fetch(url, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+
+    csvRows = rowsToObjects(data.loads);
+    const dir = buildDirectoryFromRows(data.directory);
+
+    setGSheetStatus(`✓ Fetched just now — ${csvRows.length} rows loaded · ${dir.count} companies from directory (${dir.names.join(', ') || 'none'})`, false);
+    setStatus('', '');
+  } catch (err) {
+    setGSheetStatus(`Could not fetch (${err.message}). Check the Apps Script deployment is set to "Anyone" access and re-deployed.`, true);
+  }
+}
+document.getElementById('btnFetchSheet').addEventListener('click', fetchFromGSheet);
+
+// Parses raw CSV text into rows of fields, scanning the whole text as one stream
+// (not splitting on \n first) so a line break INSIDE a quoted cell doesn't
+// shred that row and misalign every row after it.
+function parseCSVText(text) {
+  const rows = [];
+  let row = [], field = '', inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQuotes) {
+      if (c === '"') {
+        if (text[i+1] === '"') { field += '"'; i++; }
+        else { inQuotes = false; }
+      } else {
+        field += c;
+      }
+    } else {
+      if (c === '"') { inQuotes = true; }
+      else if (c === ',') { row.push(field); field = ''; }
+      else if (c === '\r') { /* skip, handled with \n */ }
+      else if (c === '\n') { row.push(field); rows.push(row); row = []; field = ''; }
+      else { field += c; }
+    }
+  }
+  if (field.length > 0 || row.length > 0) { row.push(field); rows.push(row); }
+  return rows.filter(r => r.some(v => v.trim() !== ''));
+}
+
+function parseCSV(text) {
+  const rows = parseCSVText(text);
+  if (!rows.length) return [];
+  const headers = rows[0].map(h => h.trim());
+  return rows.slice(1).map(cols => {
+    const row = {};
+    headers.forEach((h,i) => row[h] = (cols[i]||'').trim());
+    return row;
+  }).filter(r => Object.values(r).some(v=>v));
+}
+
+function findCol(row, ...names) {
+  const keys = Object.keys(row);
+  for (const name of names) {
+    const f = keys.find(k => k.trim().toLowerCase() === name.toLowerCase());
+    if (f) return f;
+  }
+  for (const name of names) {
+    const f = keys.find(k => k.toLowerCase().includes(name.toLowerCase().split(' ')[0]));
+    if (f) return f;
+  }
+  return null;
+}
+
+function parseDateStr(s) {
+  if (!s) return null; s = String(s).trim();
+  const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+  if (m) { let [_,mo,d,y]=m; if(y.length===2)y='20'+y; return new Date(`${y}-${mo.padStart(2,'0')}-${d.padStart(2,'0')}T00:00:00`); }
+  const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) return new Date(`${iso[1]}-${iso[2]}-${iso[3]}T00:00:00`);
+  const d = new Date(s); return isNaN(d) ? null : d;
+}
+
+function parseMoney(v) { return parseFloat(String(v||'0').replace(/[$,]/g,''))||0; }
+function fmtMoney(n)   { const abs = Math.abs(n).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,','); return (n < 0 ? '-$' : '$') + abs; }
+function fmtDate(d)    { return d.toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'}); }
+function addDays(d,n)  { const r=new Date(d); r.setDate(r.getDate()+n); return r; }
+function setStatus(msg,type) { const el=document.getElementById('statusMsg'); el.textContent=msg; el.className='status-msg '+(type||''); }
+
+async function generate() {
+  if (!csvRows.length) { setStatus('Please upload a file first.','error'); return; }
+  const fromVal=document.getElementById('dateFrom').value;
+  const toVal=document.getElementById('dateTo').value;
+  if (!fromVal||!toVal) { setStatus('Please select a date range.','error'); return; }
+
+  const rangeFrom = new Date(fromVal+'T00:00:00');
+  const rangeTo   = new Date(toVal+'T23:59:59');
+  const s = csvRows[0];
+
+  const colDelivery = findCol(s,'Delivery date','Delivery Date','DeliveryDate');
+  const colCompany  = findCol(s,'Company name','Company Name','Company');
+  const colPickup   = findCol(s,'Pick Up','Pick up','Pickup');
+  const colDropoff  = findCol(s,'Drop off','Drop Off','Dropoff');
+  const colRate     = findCol(s,'Rate','Load Rate');
+  const colFee      = findCol(s,'Fee');
+  const colBroker   = findCol(s,'Broker','Broker Name');
+
+  if (!colDelivery||!colCompany||!colPickup||!colDropoff||!colRate||!colFee) {
+    setStatus(`Could not match columns. Found: ${Object.keys(s).join(', ')}`, 'error'); return;
+  }
+
+  const filtered = csvRows.filter(row => {
+    const d = parseDateStr(row[colDelivery]);
+    return d && d >= rangeFrom && d <= rangeTo;
+  });
+
+  if (!filtered.length) {
+    setStatus('No loads found for the selected date range.','error');
+    document.getElementById('invoiceList').innerHTML=`<div class="empty-state"><div class="icon">🔍</div><p>No loads in this period</p></div>`;
+    document.getElementById('dlAllBtn').style.display='none'; return;
+  }
+
+  const groups = {};
+  const displayNames = {};
+  filtered.forEach(row => {
+    const raw = (row[colCompany]||'').trim();
+    const key = raw.toUpperCase();
+    if (!key) return;
+    if (!groups[key]) groups[key]=[];
+    if (!displayNames[key]) displayNames[key] = raw; // preserve original casing, first occurrence
+    groups[key].push({
+      route:  `${(row[colPickup]||'').trim()} to ${(row[colDropoff]||'').trim()}`,
+      broker: colBroker ? (row[colBroker]||'').trim() : '',
+      rate:   parseMoney(row[colRate]),
+      fee:    parseMoney(row[colFee]),
+    });
+  });
+
+  const prefix    = document.getElementById('invPrefix').value.trim();
+  let   counter   = parseInt(document.getElementById('invStart').value)||76;
+  const dueDays   = parseInt(document.getElementById('dueDays').value)||3;
+  const issueDate = new Date();
+  const dueDate   = addDays(issueDate, dueDays);
+
+  generatedInvoices = Object.entries(groups).map(([key,loads]) => ({
+    companyKey: key,
+    companyDisplayName: displayNames[key],
+    loads,
+    invoiceNum: `${prefix}-${String(counter++).padStart(4,'0')}`,
+    issueDate,
+    dueDate,
+    showBroker: true,
+    customLabel: '',
+    customAmount: 0,
+  }));
+
+  // Next week's Start # = this week's Start # + number of invoices generated
+  const nextStart = counter; // counter already advanced once per invoice generated
+  await promptSaveCounterFile(nextStart);
+
+  // Flag any company not found in COMPANY_CONTACTS (hardcoded defaults + fetched directory)
+  const normalize = s => s.toUpperCase().replace(/[^A-Z0-9]/g, ''); // strip spaces/punctuation for fuzzy compare
+  const unknownEntries = [...new Map(generatedInvoices.map(inv => [inv.companyKey, inv.companyDisplayName])).entries()]
+    .filter(([key]) => !COMPANY_CONTACTS[key]);
+  const directoryKeys = Object.keys(COMPANY_CONTACTS);
+  const warnEl = document.getElementById('companyWarning');
+  if (unknownEntries.length) {
+    const lines = unknownEntries.map(([key, name]) => {
+      const norm = normalize(key);
+      const nearMatch = directoryKeys.find(dk => normalize(dk) === norm);
+      return nearMatch
+        ? `"${name}" — close match found in directory: "${COMPANY_CONTACTS[nearMatch].name}" (check for extra spaces/punctuation/typo)`
+        : `"${name}" — no similar name found in directory at all`;
+    });
+    warnEl.innerHTML = `⚠ Not found in company directory — invoice(s) generated with blank Bill To for:<br>` + lines.join('<br>') + `<br>Add/fix them in the "ClientsInvoiceData" tab.`;
+    warnEl.style.display = 'block';
+  } else {
+    warnEl.style.display = 'none';
+  }
+
+  renderCards();
+  document.getElementById('dlAllBtn').style.display='inline-block';
+  setStatus(`✓ ${generatedInvoices.length} invoice${generatedInvoices.length>1?'s':''} ready`,'success');
+
+  recalcGrandTotal();
+  document.getElementById('grandTotalDisplay').style.display = 'flex';
+}
+
+function renderCards() {
+  const list = document.getElementById('invoiceList');
+  list.innerHTML = '';
+  const ul = document.createElement('div');
+  ul.className = 'invoice-list';
+
+  generatedInvoices.forEach((inv, i) => {
+    const info  = COMPANY_CONTACTS[inv.companyKey] || { name: inv.companyDisplayName };
+    const loads_total = inv.loads.reduce((s,l)=>s+l.fee,0);
+    const grand_total = loads_total + (inv.customAmount||0);
+
+    const card = document.createElement('div');
+    card.className = 'inv-card';
+    card.style.animationDelay = `${i*0.07}s`;
+    card.id = `card-${i}`;
+
+    card.innerHTML = `
+      <div class="inv-card-main">
+        <div class="inv-left">
+          <div class="inv-company">${info.name}</div>
+          <div class="inv-meta">
+            ${inv.loads.length} load${inv.loads.length>1?'s':''} &nbsp;·&nbsp; ${inv.invoiceNum}
+            &nbsp;·&nbsp; Due ${fmtDate(inv.dueDate)}
+          </div>
+        </div>
+        <div class="inv-right">
+          <div class="inv-total" id="total-${i}">${fmtMoney(grand_total)}</div>
+          <button class="dl-btn" onclick="downloadOne(${i})">↓ PDF</button>
+        </div>
+      </div>
+      <div class="custom-charge-bar">
+        <span>+ Custom charge:</span>
+        <input class="input-label" type="text" placeholder="Label (e.g. Tip)"
+          value="${inv.customLabel}"
+          oninput="updateCustom(${i}, 'label', this.value)" />
+        <input class="input-amount" type="number" placeholder="$0.00" min="0" step="0.01"
+          value="${inv.customAmount > 0 ? inv.customAmount : ''}"
+          oninput="updateCustom(${i}, 'amount', this.value)" />
+      </div>`;
+
+    ul.appendChild(card);
+  });
+
+  list.appendChild(ul);
+}
+
+function updateCustom(i, field, value) {
+  if (field === 'label')  generatedInvoices[i].customLabel  = String(value);
+  if (field === 'amount') generatedInvoices[i].customAmount = parseFloat(value) || 0;
+
+  const loads_total = generatedInvoices[i].loads.reduce((s,l)=>s+l.fee,0);
+  const grand_total = loads_total + (generatedInvoices[i].customAmount||0);
+  document.getElementById(`total-${i}`).textContent = fmtMoney(grand_total);
+
+  recalcGrandTotal();
+}
+
+function recalcGrandTotal() {
+  const grandTotal = generatedInvoices.reduce((sum, inv) => {
+    const loads_total = inv.loads.reduce((s,l)=>s+l.fee,0);
+    return sum + loads_total + (inv.customAmount||0);
+  }, 0);
+  const totalLoads = generatedInvoices.reduce((sum, inv) => sum + inv.loads.length, 0);
+  document.getElementById('grandTotalAmt').textContent = fmtMoney(grandTotal);
+  document.getElementById('grandLoadsAmt').textContent = totalLoads;
+}
+
+// ── PDF ───────────────────────────────────────────────────────────────────────
+function buildPDF(inv) {
+  const { jsPDF } = window.jspdf;
+  const doc  = new jsPDF({ unit:'pt', format:'letter' });
+  const info = COMPANY_CONTACTS[inv.companyKey] || { name:inv.companyDisplayName, phone:'', email:'' };
+
+  const loads_total  = inv.loads.reduce((s,l)=>s+l.fee,0);
+  const custom_amt   = parseFloat(inv.customAmount)||0;
+  const grand_total  = loads_total + custom_amt;
+
+  const L=60, R=552;
+  let y=60;
+
+  // Logo (top right)
+  const LOGO_SIZE = 140;
+  doc.addImage(LOGO_DATA_URI, 'JPEG', R-LOGO_SIZE, 40, LOGO_SIZE, LOGO_SIZE);
+
+  // Title
+  doc.setFont('helvetica','bold'); doc.setFontSize(22);
+  doc.text('Invoice', L, y); y+=30;
+
+  // Meta
+  doc.setFontSize(9); doc.setFont('helvetica','bold');
+  doc.text(`Invoice number ${inv.invoiceNum}`, L, y); y+=14;
+  doc.setFont('helvetica','normal');
+  doc.text(`Date of issue   ${fmtDate(inv.issueDate)}`, L, y); y+=14;
+  doc.text(`Date due        ${fmtDate(inv.dueDate)}`, L, y); y+=30;
+
+  // From / Bill to
+  const mid = L+(R-L)/2;
+  const fromY = y;
+  doc.setFont('helvetica','bold'); doc.setFontSize(10);
+  doc.text(MY_BIZ.name, L, fromY);
+  doc.setFont('helvetica','normal'); doc.setFontSize(9);
+  doc.text(MY_BIZ.phone, L, fromY+14);
+
+  doc.setFont('helvetica','bold'); doc.setFontSize(9);
+  doc.text('Bill to', mid, fromY);
+  doc.setFont('helvetica','normal');
+  const billLines = [info.name, info.phone, info.email].filter(Boolean);
+  billLines.forEach((l,i) => doc.text(l, mid, fromY+14+i*13));
+
+  y = fromY + 14 + billLines.length*13 + 28;
+
+  // Due line
+  doc.setFont('helvetica','bold'); doc.setFontSize(16);
+  doc.text(`${fmtMoney(grand_total)} due ${fmtDate(inv.dueDate)}`, L, y); y+=22;
+  doc.setFont('helvetica','normal'); doc.setFontSize(9);
+  doc.setTextColor(120); doc.text('Thanks for your business', L, y); doc.setTextColor(0); y+=26;
+
+  // ── Table columns ──
+  // Fee column: header and values both right-aligned at same X anchor
+  // Shift fee anchor slightly left so header visually aligns with values
+  const COL_DESC = L;
+  const FEE_X    = R - 8;  // anchor for right-align (shifted left vs page edge)
+
+  let COL_BROKER, COL_RATE;
+  if (inv.showBroker) {
+    COL_BROKER = 230;
+    COL_RATE   = 370;
+  } else {
+    COL_RATE   = 365;
+  }
+
+  // Header row
+  doc.setDrawColor(180); doc.line(L, y, R, y); y+=12;
+  doc.setFont('helvetica','bold'); doc.setFontSize(9);
+  doc.text('Description', COL_DESC, y);
+  if (inv.showBroker) doc.text('Broker Name', COL_BROKER, y);
+  doc.text('Load Rate', COL_RATE, y);
+  doc.text('Fee', FEE_X, y, { align:'right' });
+  y+=6; doc.line(L, y, R, y); y+=16;
+
+  // Data rows
+  doc.setFont('helvetica','normal');
+  inv.loads.forEach(load => {
+    doc.text(load.route, COL_DESC, y);
+    if (inv.showBroker) doc.text(load.broker||'—', COL_BROKER, y);
+    doc.text(fmtMoney(load.rate), COL_RATE, y);
+    doc.text(fmtMoney(load.fee), FEE_X, y, { align:'right' });
+    y+=6; doc.setDrawColor(220); doc.line(L, y, R, y); y+=16;
+  });
+
+  // Custom charge row (if any — positive or negative)
+  if (custom_amt !== 0) {
+    const label = (inv.customLabel && inv.customLabel.trim()) ? inv.customLabel.trim() : 'Custom Charge';
+    doc.setFont('helvetica','normal');
+    doc.text(label, COL_DESC, y);
+    doc.text(fmtMoney(custom_amt), FEE_X, y, { align:'right' });
+    y+=6; doc.setDrawColor(220); doc.line(L, y, R, y); y+=16;
+  }
+
+  // Total row
+  doc.setFont('helvetica','bold');
+  doc.text('Total', COL_RATE, y);
+  doc.text(fmtMoney(grand_total), FEE_X, y, { align:'right' });
+
+  return doc;
+}
+
+function downloadOne(i) {
+  const inv  = generatedInvoices[i];
+
+  // Read custom charge values fresh from DOM at download time
+  const card        = document.getElementById(`card-${i}`);
+  const labelInput  = card ? card.querySelector('.input-label')  : null;
+  const amountInput = card ? card.querySelector('.input-amount') : null;
+  inv.customLabel   = labelInput  ? labelInput.value.trim()              : (inv.customLabel  || '');
+  const parsedAmt   = parseFloat(amountInput ? amountInput.value : NaN);
+  inv.customAmount  = isNaN(parsedAmt) ? (inv.customAmount || 0) : parsedAmt;
+
+  const info = COMPANY_CONTACTS[inv.companyKey]||{name:inv.companyDisplayName};
+  const pdf  = buildPDF(inv);
+  const safe = info.name.replace(/\s+/g,'_').replace(/[^A-Za-z0-9_]/g,'');
+  pdf.save(`Invoice-${inv.invoiceNum}-${safe}.pdf`);
+}
+
+function downloadAll() {
+  generatedInvoices.forEach((_,i) => setTimeout(()=>downloadOne(i), i*400));
+}
+</script>
+</body>
+</html>
